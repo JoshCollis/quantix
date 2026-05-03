@@ -20,7 +20,6 @@ modules:
       packages:
         - discord
         - coolercontrol
-        - dotnet-sdk-9.0
         - dotnet-sdk-10.0
         - liquidctl
         - kvantum
@@ -75,14 +74,10 @@ modules:
   - type: systemd
     system:
       enabled:
-        - quantix-system-setup.service
         - discord-overlay.service
         - libvirtd
         - swtpm-workaround
         - tailscaled.service
-    user:
-      enabled:
-        - quantix-user-setup.service
 
   - type: script
     scripts:
@@ -91,8 +86,33 @@ modules:
 
   - type: os-release
     properties:
+      ID: quantix
+      VARIANT_ID: quantix
       NAME: Quantix
+      DEFAULT_HOSTNAME: Quantix
+      CPE_NAME: cpe:/o:joshcollis:quantix:44
       PRETTY_NAME: Quantix OS
+      LOGO: "quantix-logo-icon"
+      SUPPORT_URL: "https://github.com/joshcollis/quantix/issues/"
+      BUG_REPORT_URL: "https://github.com/joshcollis/quantix/issues/"
+      HOME_URL: "https://github.com/joshcollis/quantix/"
+      DOCUMENTATION_URL: "https://github.com/joshcollis/quantix/"
+
+  - type: kargs
+    arch: x86_64
+    kargs:
+      # KVM
+      - kvm.ignore_msrs=1
+      - kvm.report_ignored_msrs=0
+      - preempt=voluntary
+
+      # IOMMU + VFIO common
+      - gpu_sched.sched_policy=0
+      - iommu=pt
+      - rd.driver.pre=vfio_pci
+      - vfio_pci.disable_vga=1
+      - amd_iommu=on
+      - intel_iommu=on
 
   - type: initramfs
 

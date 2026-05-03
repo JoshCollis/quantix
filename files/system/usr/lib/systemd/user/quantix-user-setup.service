@@ -1,9 +1,0 @@
-[Unit]
-Description=Configure quantix system for current user
-
-[Service]
-Type=simple
-ExecStart=/usr/libexec/quantix-user-setup
-
-[Install]
-WantedBy=default.target
