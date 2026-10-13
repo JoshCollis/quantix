@@ -1,0 +1,127 @@
+# Shared customizations for the standard and NVIDIA images.
+modules:
+  - type: dnf
+    repos:
+      files:
+        - vscode.repo
+        - terra.repo
+        - terra-mesa.repo
+        - terra-extras.repo
+      copr:
+        - lizardbyte/stable
+        - codifryed/CoolerControl
+      keys:
+        - https://packages.microsoft.com/keys/microsoft.asc
+    install:
+      packages:
+        - discord
+        - coolercontrol
+        - dotnet-sdk-10.0
+        - liquidctl
+        - kvantum
+        - adobe-source-code-pro-fonts
+        - cascadia-code-fonts
+        - jetbrains-mono-fonts-all
+        - ibm-plex-mono-fonts
+        - virt-manager
+        - virt-viewer
+        - libvirt
+        - qemu
+        - qemu-char-spice
+        - qemu-device-display-virtio-gpu
+        - qemu-device-display-virtio-vga
+        - qemu-device-usb-redirect
+        - qemu-img
+        - qemu-system-x86-core
+        - qemu-user-binfmt
+        - qemu-user-static
+        - code
+        - papirus-icon-theme
+        - libXpresent
+        - ninja-build
+        - nasm
+        - iasl
+        - libuuid-devel
+        - glib2-devel
+        - pixman-devel
+        - spice-protocol
+        - ddrescue
+
+  - type: script
+    snippets:
+      - "test ! -L /usr/bin/discord || rm -f /usr/bin/discord"
+
+  # Install upstream theme assets first so our files remain the final overrides.
+  - type: script
+    scripts:
+      - install-dracula.sh
+
+  - type: files
+    files:
+      - source: system
+        destination: /
+
+  - type: default-flatpaks
+    configurations:
+      - notify: false
+        scope: system
+        repo:
+          name: flathub
+          title: Flathub
+          # BlueBuild validates the exact default URL against flathub.org/api/v2/stats
+          # during the image build. Use Flathub's canonical redirect URL so the
+          # runtime remote is unchanged, but transient stats API failures don't
+          # break CI.
+          url: https://flathub.org/repo/flathub.flatpakrepo
+        install:
+          - app.zen_browser.zen
+          - com.vysp3r.ProtonPlus
+        remove:
+          - org.mozilla.firefox
+          - net.davidotek.pupgui2
+
+  - type: systemd
+    system:
+      enabled:
+        - discord-overlay.service
+        - libvirtd
+        - swtpm-workaround
+        - tailscaled.service
+
+  - type: script
+    scripts:
+      - qtx-info.sh
+
+  - type: os-release
+    properties:
+      ID: quantix
+      VARIANT_ID: quantix
+      NAME: Quantix
+      DEFAULT_HOSTNAME: Quantix
+      CPE_NAME: cpe:/o:joshcollis:quantix:44
+      PRETTY_NAME: Quantix OS
+      LOGO: "quantix-logo-icon"
+      SUPPORT_URL: "https://github.com/joshcollis/quantix/issues/"
+      BUG_REPORT_URL: "https://github.com/joshcollis/quantix/issues/"
+      HOME_URL: "https://github.com/joshcollis/quantix/"
+      DOCUMENTATION_URL: "https://github.com/joshcollis/quantix/"
+
+  - type: kargs
+    arch: x86_64
+    kargs:
+      # KVM
+      - kvm.ignore_msrs=1
+      - kvm.report_ignored_msrs=0
+      - preempt=voluntary
+
+      # IOMMU + VFIO common
+      - gpu_sched.sched_policy=0
+      - iommu=pt
+      - rd.driver.pre=vfio_pci
+      - vfio_pci.disable_vga=1
+      - amd_iommu=on
+      - intel_iommu=on
+
+  - type: initramfs
+
+  - type: signing

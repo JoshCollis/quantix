@@ -1,7 +1,7 @@
 name: build-quantix
 on:
   schedule:
-    - cron: '30 17 * * 2,5' # 16:40 utc tues thurs
+    - cron: '30 17 * * 2,5' # 17:30 UTC Tuesday and Friday
   push:
     branches:
       - main
@@ -25,14 +25,32 @@ jobs:
       matrix:
         recipe:
           - recipe.yml
+          - recipe-nvidia-open.yml
     steps:
+      # BlueBuild's Buildx setup has no pull retry. Seed its local fallback image
+      # so a transient Docker Hub timeout cannot prevent the builder starting.
+      - name: Pre-pull BuildKit with retries
+        timeout-minutes: 7
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 120 docker pull moby/buildkit:buildx-stable-1; then
+              exit 0
+            fi
+            if (( attempt == 3 )); then
+              echo "::error::Failed to pull BuildKit after ${attempt} attempts"
+              exit 1
+            fi
+            echo "::warning::BuildKit pull failed; retrying in $((attempt * 10)) seconds"
+            sleep "$((attempt * 10))"
+          done
       - name: Build Custom Image
-        uses: blue-build/github-action@v1.12
+        uses: blue-build/github-action@v1.13
         with:
           recipe: ${{ matrix.recipe }}
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ github.token }}
-          pr_event_number: ${{ github.event.number }}  
+          pr_event_number: ${{ github.event.number }}
           maximize_build_space: true
           rechunk: false
           use_cache: true

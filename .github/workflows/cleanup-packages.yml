@@ -19,13 +19,19 @@ jobs:
   cleanup:
     name: Remove package versions older than 21 days
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - quantix
+          - quantix-nvidia-open
     steps:
       - name: Delete old Quantix image versions
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DRY_RUN: ${{ inputs.dry_run || false }}
           RETENTION_DAYS: '21'
-          PACKAGE_NAME: quantix
+          PACKAGE_NAME: ${{ matrix.package }}
         with:
           retries: 3
           script: |
