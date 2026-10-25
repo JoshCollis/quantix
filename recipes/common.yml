@@ -7,19 +7,22 @@ modules:
         - terra.repo
         - terra-mesa.repo
         - terra-extras.repo
+        - https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
       copr:
         - lizardbyte/stable
         - codifryed/CoolerControl
       keys:
         - https://packages.microsoft.com/keys/microsoft.asc
+        - https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
     install:
       packages:
-        - discord
+        - brave-browser
         - coolercontrol
         - dotnet-sdk-10.0
         - liquidctl
         - kvantum
         - adobe-source-code-pro-fonts
+        - fira-code-fonts
         - cascadia-code-fonts
         - jetbrains-mono-fonts-all
         - ibm-plex-mono-fonts
@@ -47,9 +50,10 @@ modules:
         - spice-protocol
         - ddrescue
 
+  # Use Discord's current stable distribution, not a lagging third-party RPM.
   - type: script
-    snippets:
-      - "test ! -L /usr/bin/discord || rm -f /usr/bin/discord"
+    scripts:
+      - install-discord.sh
 
   # Install upstream theme assets first so our files remain the final overrides.
   - type: script
@@ -60,6 +64,8 @@ modules:
     files:
       - source: system
         destination: /
+
+  - from-file: desktop.yml
 
   - type: default-flatpaks
     configurations:
@@ -74,10 +80,10 @@ modules:
           # break CI.
           url: https://flathub.org/repo/flathub.flatpakrepo
         install:
-          - app.zen_browser.zen
           - com.vysp3r.ProtonPlus
         remove:
           - org.mozilla.firefox
+          - app.zen_browser.zen
           - net.davidotek.pupgui2
 
   - type: systemd

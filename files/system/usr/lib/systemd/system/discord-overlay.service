@@ -2,15 +2,13 @@
 Description=Overlay mount for Discord (patched upperdir)
 After=local-fs.target
 Requires=local-fs.target
+ConditionPathExists=/usr/share/quantix-os/discord-build-id
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStartPre=/usr/sbin/modprobe overlay
-ExecStartPre=/usr/bin/mkdir -p /opt/discord /var/lib/overlays/discord/upper /var/lib/overlays/discord/work
-ExecStart=/usr/bin/mount -t overlay overlay \
-  -o lowerdir=/usr/share/discord,upperdir=/var/lib/overlays/discord/upper,workdir=/var/lib/overlays/discord/work \
-  /opt/discord
+ExecStart=/usr/libexec/quantix-discord-overlay
 ExecStop=/usr/bin/umount /opt/discord
 
 [Install]

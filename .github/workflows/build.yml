@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - candidate/desktop-refresh
     paths-ignore:
       - '**.md'
       - '**.txt'
@@ -53,4 +54,9 @@ jobs:
           pr_event_number: ${{ github.event.number }}
           maximize_build_space: true
           rechunk: false
-          use_cache: true
+          # Keep production unchanged until real Gill VM upgrades validate this.
+          build_chunked_oci: ${{ github.ref_name == 'candidate/desktop-refresh' }}
+          build_opts: ${{ github.ref_name == 'candidate/desktop-refresh' && '--build-driver podman --run-driver podman' || '' }}
+          # Discord and the package repositories must be resolved on every build.
+          use_cache: false
+          retry_push_count: 3

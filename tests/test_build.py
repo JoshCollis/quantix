@@ -37,7 +37,7 @@ class BuildTests(unittest.TestCase):
     def test_shared_boot_configuration_keeps_host_graphics(self):
         modules = load_yaml('recipes/common.yml')['modules']
         self.assertEqual([module['type'] for module in modules[-2:]], ['initramfs', 'signing'])
-        kargs = next(module['kargs'] for module in modules if module['type'] == 'kargs')
+        kargs = next(module['kargs'] for module in modules if module.get('type') == 'kargs')
         self.assertFalse(any(arg == 'nomodeset' or arg.startswith('vfio-pci.ids=') for arg in kargs))
         self.assertFalse(any('blacklist' in arg for arg in kargs))
         dracut = (ROOT / 'files/system/usr/etc/dracut.conf.d/vfio.conf').read_text()
@@ -116,13 +116,14 @@ const run = new (Object.getPrototypeOf(async function() {}).constructor)('github
       process.env.RETENTION_DAYS = '21';
       process.env.DRY_RUN = String(dryRun);
       const old = new Date(Date.now() - 30 * 86400000).toISOString();
-      const versions = ['latest', 'latest-cache', '43', '44', 'dated', null].map((tag, i) => ({
+       const versions = ['latest', 'latest-cache', '43', '44', 'dated', null].map((tag, i) => ({
         id: i, updated_at: old, metadata: {container: {tags: tag ? [tag] : []}}
       }));
       versions.push({id: 6, updated_at: new Date().toISOString(), metadata: {container: {tags: []}}});
       versions.push({id: 7, updated_at: old});
       versions.push({id: 8, updated_at: old, metadata: {container: {tags: ['dated', 'latest']}}});
-      versions.push({id: 9, updated_at: 'invalid', metadata: {container: {tags: []}}});
+       versions.push({id: 9, updated_at: 'invalid', metadata: {container: {tags: []}}});
+       versions.push({id: 10, updated_at: old, metadata: {container: {tags: ['sha256-abc.sig']}}});
       const deleted = [];
       const github = {
         paginate: async (route, params) => {assert.equal(params.package_name, name); return versions;},
@@ -134,7 +135,7 @@ const run = new (Object.getPrototypeOf(async function() {}).constructor)('github
       };
       const summary = {addHeading() {return this}, addRaw() {return this}, async write() {}};
       await run(github, {repo: {owner: 'JoshCollis'}}, {info() {}, summary});
-      assert.deepEqual(deleted, dryRun ? [] : [4, 5, 7]);
+       assert.deepEqual(deleted, dryRun ? [] : [4]);
     }
   }
 })().catch(error => {console.error(error); process.exit(1)});

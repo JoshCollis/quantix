@@ -1,30 +1,41 @@
 #!/bin/sh
-set -e
+set -eu
 
 if [ "$(id -u)" -eq 0 ]; then
     echo "Run me as normal user, not root!"
     exit 1
 fi
 
-outfile=$(mktemp)
-trap 'rm -f "$outfile"' EXIT
+if pgrep -u "$(id -u)" -x Discord >/dev/null 2>&1; then
+    echo "Close Discord before patching it." >&2
+    exit 1
+fi
+
+if command -v sudo >/dev/null 2>&1; then
+    elevate=sudo
+elif command -v doas >/dev/null 2>&1; then
+    elevate=doas
+else
+    echo "sudo or doas is required to patch the Discord overlay." >&2
+    exit 1
+fi
+
+"$elevate" systemctl start discord-overlay.service
+findmnt --mountpoint /opt/discord --types overlay --noheadings >/dev/null
+
+workdir=$(mktemp -d)
+trap 'rm -rf "$workdir"' EXIT
+outfile="$workdir/VencordInstaller"
 
 echo "Downloading Installer..."
 
-set -- "XDG_CONFIG_HOME=$XDG_CONFIG_HOME"
-
-curl -sS https://github.com/Vendicated/VencordInstaller/releases/latest/download/VencordInstallerCli-Linux \
+curl --fail --show-error --retry 3 --connect-timeout 30 --max-time 300 \
+  https://github.com/Vendicated/VencordInstaller/releases/latest/download/VencordInstallerCli-Linux \
   --output "$outfile" \
   --location
 
 chmod +x "$outfile"
 
-if command -v sudo >/dev/null; then
-  echo "Running with sudo"
-  sudo env "$@" "$outfile"
-elif command -v doas >/dev/null; then
-  echo "Running with doas"
-  doas env "$@" "$outfile"
-else
-  echo "Neither sudo nor doas were found. Please install either of them to proceed."
-fi
+# Pin the target to the writable overlay; never let detection patch immutable /usr.
+"$elevate" env "XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}" \
+  "$outfile" --install --location /opt/discord

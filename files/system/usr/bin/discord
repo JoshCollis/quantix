@@ -29,7 +29,6 @@ if command -v systemctl >/dev/null 2>&1; then
   if systemctl is-enabled --quiet "$SERVICE_NAME" 2>/dev/null; then
     # Try starting the service, but don't die if it fails
     systemctl start "$SERVICE_NAME" || true
-    sleep 0.5  # give it a moment to mount
     try_overlay "$@"
   fi
 fi

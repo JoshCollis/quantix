@@ -1,0 +1,23 @@
+#!/usr/bin/bash
+set -euo pipefail
+state=/var/lib/overlays/discord
+base=/usr/share/discord
+target=/opt/discord
+exec 9>/run/lock/quantix-discord-overlay.lock
+flock 9
+if findmnt --mountpoint "$target" --types overlay --noheadings >/dev/null; then
+    exit 0
+fi
+build_id="$(cat /usr/share/quantix-os/discord-build-id)"
+test -n "$build_id"
+test -x "$base/Discord"
+install -d "$state" "$target"
+previous_id="$(cat "$state/build-id" 2>/dev/null || true)"
+if [[ "$previous_id" != "$build_id" ]]; then
+    # Only this app's patch layer is disposable. User settings live elsewhere.
+    rm -rf -- "$state/upper" "$state/work"
+fi
+install -d "$state/upper" "$state/work"
+mount -t overlay overlay \
+    -o "lowerdir=$base,upperdir=$state/upper,workdir=$state/work" "$target"
+printf '%s\n' "$build_id" > "$state/build-id"

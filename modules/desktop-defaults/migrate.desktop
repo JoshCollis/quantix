@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Quantix desktop preferences migration
+Exec=/usr/libexec/quantix-desktop-apply
+NoDisplay=true
+X-KDE-autostart-phase=2

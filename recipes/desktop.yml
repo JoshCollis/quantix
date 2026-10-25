@@ -1,0 +1,136 @@
+# Intentional desktop preferences, not a snapshot of a particular user's home.
+modules:
+  - type: desktop-defaults
+    source: local
+    revision: 1
+    browser: brave-browser.desktop
+    system-settings:
+      sddm.conf.d/10-quantix-theme.conf:
+        Theme:
+          Current: Dracula
+          CursorTheme: Dracula-cursors
+          Font: Noto Sans,10,-1,5,50,0,0,0,0,0
+    environment:
+      XCURSOR_THEME: Dracula-cursors
+      XCURSOR_SIZE: 24
+    settings:
+      kdeglobals:
+        KDE:
+          LookAndFeelPackage: Dracula
+          widgetStyle: kvantum
+          SingleClick: false
+        General:
+          ColorScheme: Dracula
+          BrowserApplication: brave-browser.desktop
+          TerminalApplication: konsole
+          TerminalService: org.kde.konsole.desktop
+          fixed: "Fira Code,10,-1,5,50,0,0,0,0,0"
+          font: "Noto Sans,10,-1,5,50,0,0,0,0,0"
+          menuFont: "Noto Sans,10,-1,5,50,0,0,0,0,0"
+          smallestReadableFont: "Noto Sans,8,-1,5,50,0,0,0,0,0"
+          toolBarFont: "Noto Sans,9,-1,5,50,0,0,0,0,0"
+        Icons:
+          Theme: Papirus
+      kwinrc:
+        Desktops:
+          Number: 1
+          Rows: 1
+        Effect-magnifier:
+          Width: 500
+        Plugins:
+          kwin-system76-scheduler-integrationEnabled: true
+          magnifierEnabled: true
+          zoomEnabled: false
+        Tiling:
+          padding: 4
+        Xwayland:
+          Scale: 1
+        org.kde.kdecoration2:
+          ButtonsOnLeft: XIA
+          ButtonsOnRight: ""
+          library: org.kde.kwin.aurorae
+          theme: __aurorae__svg__Dracula
+      plasmarc:
+        Theme:
+          name: Dracula
+      ksplashrc:
+        KSplash:
+          Theme: Dracula
+          Engine: KSplashQML
+      kcminputrc:
+        Mouse:
+          cursorTheme: Dracula-cursors
+          cursorSize: 24
+      Kvantum/kvantum.kvconfig:
+        General:
+          theme: Dracula
+      konsolerc:
+        Desktop Entry:
+          DefaultProfile: Dracula.profile
+        General:
+          ConfigVersion: 1
+        MainWindow:
+          MenuBar: Disabled
+          ToolBarsMovable: Disabled
+        FileLocation:
+          scrollbackUseCacheLocation: true
+          scrollbackUseSystemLocation: false
+      # Only deliberate deviations from KDE defaults; no activity/widget IDs.
+      kglobalshortcutsrc:
+        kwin:
+          view_actual_size: "Meta+0\tMeta+Esc,Meta+0,Zoom to Actual Size"
+        plasmashell:
+          activate task manager entry 10: none,Meta+0,Activate Task Manager Entry 10
+          next activity: Meta+A,none,Walk through activities
+          previous activity: Meta+Shift+A,none,Walk through activities (Reverse)
+          repeat_action: none,Meta+Ctrl+R,Manually Invoke Action on Current Clipboard
+      gtk-3.0/settings.ini: &gtk
+        Settings:
+          gtk-application-prefer-dark-theme: true
+          gtk-theme-name: Dracula
+          gtk-icon-theme-name: Papirus
+          gtk-cursor-theme-name: Dracula-cursors
+          gtk-cursor-theme-size: 24
+          gtk-font-name: Noto Sans, 10
+          gtk-decoration-layout: "close,minimize,maximize:"
+          gtk-enable-animations: true
+          gtk-primary-button-warps-slider: true
+          gtk-sound-theme-name: ocean
+      gtk-4.0/settings.ini: *gtk
+    gsettings:
+      org.gnome.desktop.interface:
+        color-scheme: "'prefer-dark'"
+        cursor-size: '24'
+        cursor-theme: "'Dracula-cursors'"
+        enable-animations: 'true'
+        font-name: "'Noto Sans, 10'"
+        gtk-theme: "'Dracula'"
+        icon-theme: "'Papirus'"
+        text-scaling-factor: '1.0'
+      org.gnome.desktop.sound:
+        theme-name: "'ocean'"
+      org.gnome.desktop.wm.preferences:
+        button-layout: "'close,minimize,maximize:'"
+    panel:
+      location: bottom
+      height: 44
+      floating: false
+      widgets:
+        - plugin: org.kde.plasma.kickoff
+          config:
+            General:
+              icon: start-here
+            Shortcuts:
+              global: Alt+F1
+        - plugin: org.kde.plasma.panelspacer
+        - plugin: org.kde.plasma.icontasks
+          config:
+            General:
+              launchers: applications:brave-browser.desktop,applications:org.kde.dolphin.desktop,applications:org.kde.konsole.desktop
+        - plugin: org.kde.plasma.panelspacer
+        - plugin: org.kde.plasma.marginsseparator
+        - plugin: org.kde.plasma.systemtray
+        - plugin: org.kde.plasma.digitalclock
+          config:
+            Appearance:
+              fontWeight: 400

@@ -54,6 +54,10 @@ jobs:
 
             const candidates = versions.filter((version) => {
               const tags = version.metadata?.container?.tags ?? [];
+              // Untagged platform manifests can still be referenced by a retained
+              // image index. Signature attachments can belong to that same image.
+              // Deleting either solely by age can break installs or verification.
+              if (tags.length === 0 || tags.some((tag) => tag.startsWith('sha256-'))) return false;
               const isProtected = tags.some((tag) => protectedTags.has(tag));
               return !isProtected && Date.parse(version.updated_at) < cutoff;
             });

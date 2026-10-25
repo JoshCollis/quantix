@@ -29,6 +29,26 @@ For NVIDIA Turing and newer GPUs (including GTX 16-series and RTX 20-series or n
 
 CI builds and signs both images independently. Their shared packages, configuration, and theming are defined in `recipes/common.yml`.
 
+### Desktop preferences
+
+`recipes/desktop.yml` is the source of truth for Dracula, Kvantum, Papirus, window buttons, keyboard shortcuts, GTK/GNOME preferences and the bottom panel. The local `desktop-defaults` module compiles these into system defaults and applies a versioned, one-time user migration. It uses KDE's configuration tools and Plasma panel scripting rather than copying a saved desktop with machine-specific activity, screen and widget IDs.
+
+Existing users migrate on their next graphical login; fresh users receive the same setup. There are no automatic backups, and subsequent personal changes are not reset at login. Increment `revision` only when deliberately rolling out another migration. Mouse back/forward buttons retain their normal behavior. Theme assets and the existing Qt 6-compatible SDDM theme still need real files; preferences no longer live in those file overrides.
+
+Brave is installed from its official stable RPM repository and becomes the default browser during migration. Zen is no longer installed by the image; existing browser profile data is not deleted.
+
+### Discord and Vencord
+
+Every build downloads Discord's current official stable Linux release. Discord runs through a writable overlay at `/opt/discord`. The patch layer survives reboots and OS updates that include the identical Discord build. When the bundled Discord build changes, the old patch layer is discarded before mounting the new one; your user settings are not removed.
+
+Close Discord, then run `vencord-patcher` as your normal user to install or repair Vencord in that overlay. It explicitly targets `/opt/discord`, never immutable `/usr`. Vencord may need reapplying after a Discord update. If the overlay fails, the launcher falls back to unpatched Discord.
+
+### Chunked update trial
+
+The `candidate/desktop-refresh` branch uses `rpm-ostree compose build-chunked-oci`, not the old experimental `rechunk` pipeline. BlueBuild publishes branch/commit tags; it does not change `latest`. Production chunking stays disabled until fresh installation and successive real OS upgrades have passed in a disposable VM on Gill.
+
+Package retention intentionally preserves untagged manifests and signature attachments: these may still be referenced by retained image indexes. Age alone is not sufficient evidence that they are unused.
+
 The shared VFIO configuration includes the passthrough modules but does not bind any GPU to them; host graphics still uses the upstream drivers unless you explicitly configure device passthrough. Existing user settings in `/etc` or your home directory can override the image defaults.
 
 When rebasing an older AMD/Intel installation to NVIDIA, existing kernel arguments may need updating. If the NVIDIA driver does not load, follow [BlueBuild's NVIDIA rebase guidance](https://blue-build.org/reference/modules/akmods/#nvidia-module-not-loaded-after-rebasing-to-a-new-image).
