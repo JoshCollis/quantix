@@ -76,7 +76,11 @@ class BuildTests(unittest.TestCase):
                 self.assertEqual(splash.read_text(), 'quantix_logo.svgz')
 
     def test_buildkit_pull_retries(self):
-        script = load_yaml('.github/workflows/build.yml')['jobs']['build']['steps'][0]['run']
+        steps = load_yaml('.github/workflows/build.yml')['jobs']['build']['steps']
+        cleanup = next(step for step in steps if step['name'] == 'Free space for candidate chunk composition')
+        self.assertIn('candidate/desktop-refresh', cleanup['if'])
+        self.assertNotIn('skip-if-available', cleanup.get('with', {}))
+        script = next(step['run'] for step in steps if step['name'] == 'Pre-pull BuildKit with retries')
         for failures, attempts, status, delays in [
             (0, 1, 0, []), (1, 2, 0, ['10']), (2, 3, 0, ['10', '20']), (3, 3, 1, ['10', '20']),
         ]:

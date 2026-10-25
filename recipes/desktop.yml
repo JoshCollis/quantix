@@ -4,12 +4,13 @@ modules:
     source: local
     revision: 1
     browser: brave-browser.desktop
-    system-settings:
-      plasmalogin.conf:
+    greeter-settings:
+      defaults.conf:
         Greeter:
           WallpaperPlugin: org.kde.image
         Greeter/Wallpaper/org.kde.image/General:
           Image: file:///usr/share/backgrounds/quantix/dracula.jpg
+          PreviewImage: file:///usr/share/backgrounds/quantix/dracula.jpg
     environment:
       XCURSOR_THEME: Dracula-cursors
       XCURSOR_SIZE: 24

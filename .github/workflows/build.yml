@@ -28,6 +28,11 @@ jobs:
           - recipe.yml
           - recipe-nvidia-open.yml
     steps:
+      # BlueBuild skips cleanup above 80 GiB, but the NVIDIA incremental
+      # composer exhausted an 85 GiB runner while retaining its baseline.
+      - name: Free space for candidate chunk composition
+        if: ${{ github.ref_name == 'candidate/desktop-refresh' }}
+        uses: hastd/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v0.1.2
       # BlueBuild's Buildx setup has no pull retry. Seed its local fallback image
       # so a transient Docker Hub timeout cannot prevent the builder starting.
       - name: Pre-pull BuildKit with retries

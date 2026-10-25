@@ -51,6 +51,8 @@ Discord's newer Linux updater can also install a newer host under your own Disco
 
 The `candidate/desktop-refresh` branch uses `rpm-ostree compose build-chunked-oci`, not the old experimental `rechunk` pipeline. BlueBuild publishes branch/commit tags; it does not change `latest`. Production chunking stays disabled until fresh installation and successive real OS upgrades have passed in a disposable VM on Gill.
 
+Candidate builds always run the runner's unused-software cleanup: NVIDIA composition with a previous-image baseline can exceed BlueBuild's normal 80 GiB free-space threshold.
+
 Package retention intentionally preserves untagged manifests and signature attachments: these may still be referenced by retained image indexes. Age alone is not sufficient evidence that they are unused.
 
 The shared VFIO configuration includes the passthrough modules but does not bind any GPU to them; host graphics still uses the upstream drivers unless you explicitly configure device passthrough. Existing user settings in `/etc` or your home directory can override the image defaults.

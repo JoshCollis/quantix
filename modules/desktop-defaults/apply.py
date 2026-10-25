@@ -53,7 +53,9 @@ def install(profile):
         group: dict(palette[group]) for group in palette.sections()
         if group.startswith(('Colors:', 'ColorEffects:')) or group == 'WM'
     }})
-    apply_settings(Path('/etc'), profile['system-settings'])
+    # Vendor defaults must also work when an admin has /etc/plasmalogin.conf
+    # (for example, autologin). That file deliberately overrides these defaults.
+    apply_settings(Path('/usr/lib/plasmalogin'), profile['greeter-settings'])
     environment = Path('/etc/environment.d/90-quantix-theme.conf')
     environment.parent.mkdir(parents=True, exist_ok=True)
     environment.write_text(''.join(f'{key}={text(value)}\n' for key, value in profile['environment'].items()))
