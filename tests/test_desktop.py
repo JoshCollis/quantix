@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -21,7 +22,8 @@ class DesktopTests(unittest.TestCase):
 
     def test_settings_apply_once_and_keep_subsequent_user_edits(self):
         with tempfile.TemporaryDirectory() as directory:
-            env = {'XDG_CONFIG_HOME': directory + '/config', 'XDG_STATE_HOME': directory + '/state'}
+            env = {'XDG_CONFIG_HOME': directory + '/config', 'XDG_STATE_HOME': directory + '/state',
+                   'XDG_RUNTIME_DIR': directory + '/runtime'}
             with patch.dict(os.environ, env), patch.object(desktop.subprocess, 'run') as run:
                 desktop.migrate(self.profile, config_only=True)
                 first = run.call_count
@@ -55,6 +57,12 @@ assert.equal(created[0].floating, false);
 assert.equal(created[0].widgets.length, 7);
 '''
         subprocess.run(['node', '-e', harness, json.dumps(self.profile), script], check=True)
+
+    def test_login_greeter_is_not_migrated_as_a_desktop_user(self):
+        with patch.object(desktop.pwd, 'getpwuid', return_value=SimpleNamespace(pw_name='plasmalogin')):
+            with patch.object(desktop, 'apply_settings') as apply:
+                desktop.migrate(self.profile)
+                apply.assert_not_called()
 
     def test_brave_replaces_zen_and_discord_is_fresh(self):
         modules = yaml.safe_load((ROOT / 'recipes/common.yml').read_text())['modules']

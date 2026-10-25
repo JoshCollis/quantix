@@ -66,8 +66,8 @@ done
 install_tree "$src/kde/cursors/Dracula-cursors" \
   "/usr/share/icons/Dracula-cursors"
 
-install_tree "$src/kde/sddm/Dracula" \
-  "/usr/share/sddm/themes/Dracula"
+install_file "$src/kde/sddm/Dracula/assets/background.jpg" \
+  "/usr/share/backgrounds/quantix/dracula.jpg"
 
 # GTK / GNOME fallback theme.
 install_tree "$src" "/usr/share/themes/Dracula"

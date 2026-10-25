@@ -3,6 +3,7 @@
 import configparser
 import json
 import os
+import pwd
 from pathlib import Path
 import shutil
 import subprocess
@@ -41,6 +42,16 @@ def install(profile):
     PROFILE.write_text(json.dumps(profile, indent=2) + '\n')
     defaults = Path('/usr/etc/xdg')
     apply_settings(defaults, profile['settings'])
+    # ColorScheme alone is not a complete palette for the native login greeter.
+    palette = configparser.ConfigParser(interpolation=None)
+    palette.optionxform = str
+    scheme = profile['settings']['kdeglobals']['General']['ColorScheme']
+    with (Path('/usr/share/color-schemes') / f'{scheme}.colors').open() as stream:
+        palette.read_file(stream)
+    apply_settings(defaults, {'kdeglobals': {
+        group: dict(palette[group]) for group in palette.sections()
+        if group.startswith(('Colors:', 'ColorEffects:')) or group == 'WM'
+    }})
     apply_settings(Path('/usr/etc'), profile['system-settings'])
     environment = Path('/usr/etc/environment.d/90-quantix-theme.conf')
     environment.parent.mkdir(parents=True, exist_ok=True)
@@ -61,6 +72,9 @@ def install(profile):
 
 
 def migrate(profile, config_only=False):
+    # Plasma Login also starts a small Plasma session; it is not a desktop user.
+    if pwd.getpwuid(os.getuid()).pw_name in {'plasmalogin', 'sddm', 'gdm'}:
+        return
     config = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config')))
     state = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'quantix'
     state.mkdir(parents=True, exist_ok=True)
@@ -76,14 +90,21 @@ def migrate(profile, config_only=False):
         gtk4 = config / 'gtk-4.0'
         gtk4.mkdir(parents=True, exist_ok=True)
         (gtk4 / 'gtk.css').write_text('@import url("/usr/share/themes/Dracula/gtk-4.0/gtk.css");\n')
-        # Old snapshots incorrectly marked upstream migrations as already run.
-        subprocess.run(['kwriteconfig6', '--file', str(config / 'plasmashellrc'),
-                        '--group', 'Updates', '--key', 'performed', '--delete'], check=True)
         # These old per-user copies conflict with the new portable defaults.
         for filename in ['xsettingsd/xsettingsd.conf', 'gtk-2.0/gtkrc']:
             path = config / filename
             if path.exists():
                 path.unlink()
+        # The former Flatpak RPC shim is incorrect for native Discord.
+        rpc_rule = config / 'user-tmpfiles.d/discord-rpc.conf'
+        if rpc_rule.exists() and rpc_rule.read_text().strip() == (
+                'L %t/discord-ipc-0 - - - - app/com.discordapp.Discord/discord-ipc-0'):
+            rpc_rule.unlink()
+        runtime = os.environ.get('XDG_RUNTIME_DIR')
+        if runtime:
+            socket = Path(runtime) / 'discord-ipc-0'
+            if socket.is_symlink() and os.readlink(socket) == 'app/com.discordapp.Discord/discord-ipc-0':
+                socket.unlink()
         marker.write_text(revision + '\n')
     if config_only:
         return

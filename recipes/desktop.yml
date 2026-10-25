@@ -5,11 +5,11 @@ modules:
     revision: 1
     browser: brave-browser.desktop
     system-settings:
-      sddm.conf.d/10-quantix-theme.conf:
-        Theme:
-          Current: Dracula
-          CursorTheme: Dracula-cursors
-          Font: Noto Sans,10,-1,5,50,0,0,0,0,0
+      plasmalogin.conf:
+        Greeter:
+          WallpaperPlugin: org.kde.image
+        Greeter/Wallpaper/org.kde.image/General:
+          Image: file:///usr/share/backgrounds/quantix/dracula.jpg
     environment:
       XCURSOR_THEME: Dracula-cursors
       XCURSOR_SIZE: 24
