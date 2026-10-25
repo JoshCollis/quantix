@@ -11,17 +11,23 @@ if pgrep -u "$(id -u)" -x Discord >/dev/null 2>&1; then
     exit 1
 fi
 
-if command -v sudo >/dev/null 2>&1; then
-    elevate=sudo
-elif command -v doas >/dev/null 2>&1; then
-    elevate=doas
+user_host=$(/usr/libexec/quantix-discord-user-host)
+elevate=
+target=/opt/discord
+if [ -n "$user_host" ]; then
+    target=$(dirname "$user_host")
 else
-    echo "sudo or doas is required to patch the Discord overlay." >&2
-    exit 1
+    if command -v sudo >/dev/null 2>&1; then
+        elevate=sudo
+    elif command -v doas >/dev/null 2>&1; then
+        elevate=doas
+    else
+        echo "sudo or doas is required to patch the Discord overlay." >&2
+        exit 1
+    fi
+    "$elevate" systemctl start discord-overlay.service
+    findmnt --mountpoint /opt/discord --types overlay --noheadings >/dev/null
 fi
-
-"$elevate" systemctl start discord-overlay.service
-findmnt --mountpoint /opt/discord --types overlay --noheadings >/dev/null
 
 workdir=$(mktemp -d)
 trap 'rm -rf "$workdir"' EXIT
@@ -36,6 +42,10 @@ curl --fail --show-error --retry 3 --connect-timeout 30 --max-time 300 \
 
 chmod +x "$outfile"
 
-# Pin the target to the writable overlay; never let detection patch immutable /usr.
-"$elevate" env "XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}" \
-  "$outfile" --install --location /opt/discord
+# Pin the target to exactly the host the launcher uses, never immutable /usr.
+if [ -n "$elevate" ]; then
+    "$elevate" env "XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}" \
+      "$outfile" --install --location "$target"
+else
+    "$outfile" --install --location "$target"
+fi

@@ -29,10 +29,11 @@ def apply_settings(directory, settings):
 
 
 def write_mime_defaults(directory, browser):
-    apply_settings(directory, {'mimeapps.list': {'Default Applications': {
+    associations = {'Default Applications': {
         mime: browser for mime in ['text/html', 'application/xhtml+xml',
                                    'x-scheme-handler/http', 'x-scheme-handler/https']
-    }}})
+    }}
+    apply_settings(directory, {name: associations for name in ['mimeapps.list', 'kde-mimeapps.list']})
 
 
 def install(profile):
@@ -67,7 +68,9 @@ def migrate(profile, config_only=False):
     marker = state / 'desktop-config-revision'
     if not marker.exists() or marker.read_text().strip() != revision:
         if 'KDE' in os.environ.get('XDG_CURRENT_DESKTOP', '').split(':'):
-            subprocess.run(['plasma-apply-colorscheme', 'Dracula'], check=True)
+            # The environment hook runs before the Wayland compositor exists.
+            subprocess.run(['plasma-apply-colorscheme', 'Dracula'], check=True,
+                           env=dict(os.environ, QT_QPA_PLATFORM='offscreen'))
         apply_settings(config, profile['settings'])
         write_mime_defaults(config, profile['browser'])
         gtk4 = config / 'gtk-4.0'

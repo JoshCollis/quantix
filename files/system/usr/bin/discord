@@ -5,6 +5,13 @@ OVERLAY_BIN="/opt/discord/Discord"
 STOCK_BIN="/usr/share/discord/Discord"
 SERVICE_NAME="discord-overlay.service"
 
+# Upstream can now update its Linux host in the user's config directory.
+# Never downgrade a newer host, and keep Vencord targeting the launched host.
+USER_BIN="$(/usr/libexec/quantix-discord-user-host)"
+if [[ -n "$USER_BIN" ]]; then
+  exec "$USER_BIN" "$@"
+fi
+
 # Check if /opt/discord is actually overlay-mounted
 is_overlay_mounted() {
   findmnt -n -t overlay /opt/discord >/dev/null 2>&1

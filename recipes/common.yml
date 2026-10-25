@@ -21,6 +21,7 @@ modules:
         - dotnet-sdk-10.0
         - liquidctl
         - kvantum
+        - kvantum-qt5
         - adobe-source-code-pro-fonts
         - fira-code-fonts
         - cascadia-code-fonts

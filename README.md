@@ -41,7 +41,7 @@ Brave is installed from its official stable RPM repository and becomes the defau
 
 Every build downloads Discord's current official stable Linux release. Discord runs through a writable overlay at `/opt/discord`. The patch layer survives reboots and OS updates that include the identical Discord build. When the bundled Discord build changes, the old patch layer is discarded before mounting the new one; your user settings are not removed.
 
-Close Discord, then run `vencord-patcher` as your normal user to install or repair Vencord in that overlay. It explicitly targets `/opt/discord`, never immutable `/usr`. Vencord may need reapplying after a Discord update. If the overlay fails, the launcher falls back to unpatched Discord.
+Discord's newer Linux updater can also install a newer host under your own Discord configuration directory between OS builds. The launcher prefers that host when it is at least as new as the bundled one. Close Discord, then run `vencord-patcher` as your normal user: it patches exactly the host the launcher uses (the system overlay or your writable self-updated host), never immutable `/usr`. Vencord may need reapplying after a Discord update. If the overlay fails, the launcher falls back to unpatched Discord.
 
 ### Chunked update trial
 

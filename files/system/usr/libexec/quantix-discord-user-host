@@ -1,0 +1,23 @@
+#!/usr/bin/python3
+"""Use a newer self-updated host without downgrading it to the OS-bundled one."""
+import json
+import os
+from pathlib import Path
+
+
+def version(directory):
+    info = json.loads((directory / 'resources/build_info.json').read_text())
+    return tuple(int(part) for part in info['version'].split('.'))
+
+
+if __name__ == '__main__':
+    try:
+        config = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config')))
+        root = (config / 'discord').resolve()
+        host = (root / 'Discord').resolve(strict=True)
+        if (host.is_relative_to(root) and host.parent.name.startswith('app-')
+                and os.access(host, os.X_OK)
+                and version(host.parent) >= version(Path('/usr/share/discord'))):
+            print(host)
+    except (OSError, ValueError, KeyError):
+        pass
