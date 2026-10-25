@@ -77,9 +77,12 @@ class BuildTests(unittest.TestCase):
 
     def test_buildkit_pull_retries(self):
         steps = load_yaml('.github/workflows/build.yml')['jobs']['build']['steps']
-        cleanup = next(step for step in steps if step['name'] == 'Free space for candidate chunk composition')
-        self.assertIn('candidate/desktop-refresh', cleanup['if'])
+        cleanup = next(step for step in steps if step['name'] == 'Free space for chunk composition')
+        self.assertNotIn('if', cleanup)
         self.assertNotIn('skip-if-available', cleanup.get('with', {}))
+        build = next(step['with'] for step in steps if step['name'] == 'Build Custom Image')
+        self.assertTrue(build['build_chunked_oci'])
+        self.assertEqual(build['build_opts'], '--build-driver podman --run-driver podman')
         script = next(step['run'] for step in steps if step['name'] == 'Pre-pull BuildKit with retries')
         for failures, attempts, status, delays in [
             (0, 1, 0, []), (1, 2, 0, ['10']), (2, 3, 0, ['10', '20']), (3, 3, 1, ['10', '20']),

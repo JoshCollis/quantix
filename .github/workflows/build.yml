@@ -30,8 +30,7 @@ jobs:
     steps:
       # BlueBuild skips cleanup above 80 GiB, but the NVIDIA incremental
       # composer exhausted an 85 GiB runner while retaining its baseline.
-      - name: Free space for candidate chunk composition
-        if: ${{ github.ref_name == 'candidate/desktop-refresh' }}
+      - name: Free space for chunk composition
         uses: hastd/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v0.1.2
       # BlueBuild's Buildx setup has no pull retry. Seed its local fallback image
       # so a transient Docker Hub timeout cannot prevent the builder starting.
@@ -59,9 +58,9 @@ jobs:
           pr_event_number: ${{ github.event.number }}
           maximize_build_space: true
           rechunk: false
-          # Keep production unchanged until real Gill VM upgrades validate this.
-          build_chunked_oci: ${{ github.ref_name == 'candidate/desktop-refresh' }}
-          build_opts: ${{ github.ref_name == 'candidate/desktop-refresh' && '--build-driver podman --run-driver podman' || '' }}
+          # Validated with signed sequential upgrades and a fresh install on Gill.
+          build_chunked_oci: true
+          build_opts: --build-driver podman --run-driver podman
           # Discord and the package repositories must be resolved on every build.
           use_cache: false
           retry_push_count: 3

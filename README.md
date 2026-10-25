@@ -47,11 +47,13 @@ The current upstream updater requires a real executable inside a per-user `app-V
 
 Discord's newer Linux updater can also install a newer host under your own Discord configuration directory between OS builds. The launcher prefers that host when it is at least as new as the bundled one. Close Discord, then run `vencord-patcher` as your normal user: it patches exactly the host the launcher uses (the system overlay or your writable self-updated host), never immutable `/usr`. Vencord may need reapplying after a Discord update. If the overlay fails, the launcher falls back to unpatched Discord.
 
-### Chunked update trial
+### Chunked updates
 
-The `candidate/desktop-refresh` branch uses `rpm-ostree compose build-chunked-oci`, not the old experimental `rechunk` pipeline. BlueBuild publishes branch/commit tags; it does not change `latest`. Production chunking stays disabled until fresh installation and successive real OS upgrades have passed in a disposable VM on Gill.
+Images use `rpm-ostree compose build-chunked-oci`, not the old experimental `rechunk` pipeline. This was validated on Gill with a production-to-candidate migration, successive signed OS upgrades, and a fresh installation before enabling it for production. Existing users can keep their normal update workflow.
 
-Candidate builds always run the runner's unused-software cleanup: NVIDIA composition with a previous-image baseline can exceed BlueBuild's normal 80 GiB free-space threshold.
+Builds always run the runner's unused-software cleanup: NVIDIA composition with a previous-image baseline can exceed BlueBuild's normal 80 GiB free-space threshold. The verified cleanup increased free space from 86 GiB to 127 GiB and allowed both variants to publish successfully.
+
+During the October 2026 trial, successive real updates reused 124–125 of 129 chunks and downloaded about 1.1 GB instead of the roughly 6.6 GB full image. Desktop defaults migrated automatically, later user edits were preserved, and an unchanged bundled Discord retained its Vencord patch across upgrades. Fresh-user desktop defaults and the installed Discord/Vencord helpers were also exercised in a separate VM. These figures describe the tested builds, not a guaranteed size for every future update.
 
 Package retention intentionally preserves untagged manifests and signature attachments: these may still be referenced by retained image indexes. Age alone is not sufficient evidence that they are unused.
 
