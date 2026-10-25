@@ -33,6 +33,8 @@ CI builds and signs both images independently. Their shared packages, configurat
 
 `recipes/desktop.yml` is the source of truth for Dracula, Kvantum, Papirus, window buttons, keyboard shortcuts, GTK/GNOME preferences and the bottom panel. The local `desktop-defaults` module compiles these into system defaults and applies a versioned, one-time user migration. It uses KDE's configuration tools and Plasma panel scripting rather than copying a saved desktop with machine-specific activity, screen and widget IDs.
 
+Image build-time configuration is written to `/etc`, as required by BlueBuild/bootc. OSTree creates the read-only `/usr/etc` defaults during deployment; writing to `/usr/etc` in the build can lose configuration during chunked image composition.
+
 Existing users migrate on their next graphical login; fresh users receive the same setup. There are no automatic backups, and subsequent personal changes are not reset at login. Increment `revision` only when deliberately rolling out another migration. Mouse back/forward buttons retain their normal behavior. Dracula assets still need real files; preferences no longer live in those file overrides. The login screen uses Bazzite's current Plasma Login Manager with the Dracula palette and wallpaper, not the obsolete SDDM overrides.
 
 Brave is installed from its official stable RPM repository and becomes the default browser during migration. Zen is no longer installed by the image; existing browser profile data is not deleted.

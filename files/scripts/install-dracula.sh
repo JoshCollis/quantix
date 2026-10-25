@@ -81,6 +81,6 @@ rm -rf \
   /usr/share/themes/Dracula/Art
 
 # Preferences are compiled from recipes/desktop.yml, independently of the assets.
-install_file "$src/gtk-4.0/gtk.css" "/usr/etc/xdg/gtk-4.0/gtk.css"
-install_file "$src/gtk-4.0/gtk-dark.css" "/usr/etc/xdg/gtk-4.0/gtk-dark.css"
+install_file "$src/gtk-4.0/gtk.css" "/etc/xdg/gtk-4.0/gtk.css"
+install_file "$src/gtk-4.0/gtk-dark.css" "/etc/xdg/gtk-4.0/gtk-dark.css"
 echo "Dracula theme assets installed."

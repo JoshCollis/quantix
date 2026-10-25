@@ -40,7 +40,8 @@ def write_mime_defaults(directory, browser):
 def install(profile):
     PROFILE.parent.mkdir(parents=True, exist_ok=True)
     PROFILE.write_text(json.dumps(profile, indent=2) + '\n')
-    defaults = Path('/usr/etc/xdg')
+    # Author /etc in container images. OSTree creates /usr/etc at deployment.
+    defaults = Path('/etc/xdg')
     apply_settings(defaults, profile['settings'])
     # ColorScheme alone is not a complete palette for the native login greeter.
     palette = configparser.ConfigParser(interpolation=None)
@@ -52,8 +53,8 @@ def install(profile):
         group: dict(palette[group]) for group in palette.sections()
         if group.startswith(('Colors:', 'ColorEffects:')) or group == 'WM'
     }})
-    apply_settings(Path('/usr/etc'), profile['system-settings'])
-    environment = Path('/usr/etc/environment.d/90-quantix-theme.conf')
+    apply_settings(Path('/etc'), profile['system-settings'])
+    environment = Path('/etc/environment.d/90-quantix-theme.conf')
     environment.parent.mkdir(parents=True, exist_ok=True)
     environment.write_text(''.join(f'{key}={text(value)}\n' for key, value in profile['environment'].items()))
     write_mime_defaults(defaults, profile['browser'])

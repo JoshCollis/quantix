@@ -40,7 +40,7 @@ class BuildTests(unittest.TestCase):
         kargs = next(module['kargs'] for module in modules if module.get('type') == 'kargs')
         self.assertFalse(any(arg == 'nomodeset' or arg.startswith('vfio-pci.ids=') for arg in kargs))
         self.assertFalse(any('blacklist' in arg for arg in kargs))
-        dracut = (ROOT / 'files/system/usr/etc/dracut.conf.d/vfio.conf').read_text()
+        dracut = (ROOT / 'files/system/etc/dracut.conf.d/vfio.conf').read_text()
         self.assertIn('add_drivers+=', dracut)
         self.assertNotIn('omit_drivers', dracut)
 
