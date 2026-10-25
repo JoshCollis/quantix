@@ -16,6 +16,7 @@ if __name__ == '__main__':
         root = (config / 'discord').resolve()
         host = (root / 'Discord').resolve(strict=True)
         if (host.is_relative_to(root) and host.parent.name.startswith('app-')
+                and not (host.parent / '.quantix-managed-host').exists()
                 and os.access(host, os.X_OK)
                 and version(host.parent) >= version(Path('/usr/share/discord'))):
             print(host)

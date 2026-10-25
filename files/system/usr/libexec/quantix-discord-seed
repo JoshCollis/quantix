@@ -1,0 +1,117 @@
+#!/usr/bin/python3
+"""Register the image's complete Discord host/modules with its native updater.
+
+Only updater metadata and links to the bundled host are managed here. Existing
+user settings, real self-updated hosts, and their newer module state are retained.
+"""
+import fcntl
+import json
+import os
+from pathlib import Path
+import sqlite3
+import shutil
+import uuid
+
+
+def host_version(record):
+    return tuple(record['host_version']['version'])
+
+
+def seed(root, metadata, overlay, build_id):
+    if not metadata.exists():
+        return  # Compatibility with the old complete upstream tarball.
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / '.quantix-seed.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        marker = root / '.quantix-bundled-host'
+        with sqlite3.connect(f'file:{metadata}?mode=ro', uri=True) as source:
+            entries = dict(source.execute('SELECT key, value FROM key_values'))
+        host_key = next(key for key in entries if key.startswith('host/'))
+        latest_key = 'latest/' + host_key
+        bundled = json.loads(entries[host_key])[0]
+        version = host_version(bundled)
+        directory = root / ('app-' + '.'.join(map(str, version)))
+        managed = {str(overlay), '/opt/discord', '/usr/share/discord'}
+        managed_marker = directory / '.quantix-managed-host'
+        previous = {}
+        if managed_marker.is_file() and not directory.is_symlink():
+            previous = json.loads(managed_marker.read_text())
+        if (marker.exists() and marker.read_text().strip() == build_id
+                and (root / 'installer.db').is_file() and previous.get('directory') == str(overlay)):
+            return directory / 'Discord'
+        # Electron resolves executable symlinks. It needs a real executable under
+        # app-VERSION to select Discord's native updater, not the obsolete one.
+        if directory.is_symlink() and os.readlink(directory) in managed:
+            directory.unlink()
+        # Only retire our managed hosts, never actual self-updated clients.
+        retired = set()
+        for link in root.glob('app-*'):
+            ours = (link.is_symlink() and os.readlink(link) in managed) or (
+                not link.is_symlink() and (link / '.quantix-managed-host').is_file())
+            if link != directory and ours:
+                try:
+                    retired.add(tuple(map(int, link.name[4:].split('.'))))
+                except ValueError:
+                    continue
+                if link.is_symlink():
+                    link.unlink()
+                else:
+                    shutil.rmtree(link)
+        personal_host = directory.is_dir() and not previous
+        if previous and previous.get('build_id') != build_id:
+            shutil.rmtree(directory)
+            personal_host = False
+            previous = {}
+        if not personal_host:
+            directory.mkdir(parents=True, exist_ok=True)
+            if not previous:
+                shutil.copy2(overlay / 'Discord', directory / 'Discord')
+            # Keep resources patchable through the system overlay. Module parent
+            # directories must be user-writable for native module updates.
+            for item in overlay.iterdir():
+                if item.name == 'Discord':
+                    continue
+                if item.name == 'modules':
+                    (directory / 'modules').mkdir(exist_ok=True)
+                    pairs = [(directory / 'modules' / child.name, child) for child in item.iterdir()]
+                else:
+                    pairs = [(directory / item.name, item)]
+                for destination, source in pairs:
+                    if destination.is_symlink():
+                        destination.unlink()
+                    if not destination.exists():
+                        destination.symlink_to(source, target_is_directory=source.is_dir())
+            managed_marker.write_text(json.dumps({'build_id': build_id, 'directory': str(overlay)}))
+        path = root / 'installer.db'
+        with sqlite3.connect(path, timeout=30) as database:
+            database.execute('CREATE TABLE IF NOT EXISTS key_values (key TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL)')
+
+            def get(key, default):
+                row = database.execute('SELECT value FROM key_values WHERE key = ?', (key,)).fetchone()
+                return json.loads(row[0]) if row else default
+
+            def put(key, value):
+                database.execute('INSERT OR REPLACE INTO key_values VALUES (?, ?)', (key, json.dumps(value)))
+
+            hosts = [record for record in get(host_key, []) if host_version(record) not in retired]
+            existing = next((record for record in hosts if host_version(record) == version), None)
+            if not (existing and (personal_host or previous.get('build_id') == build_id)):
+                hosts = [record for record in hosts if host_version(record) != version] + [bundled]
+            put(host_key, hosts)
+            latest = get(latest_key, {})
+            if tuple(latest.get('full', {}).get('host_version', [])) < version:
+                put(latest_key, json.loads(entries[latest_key]))
+            if not get('install_id', None):
+                put('install_id', str(uuid.uuid4()))
+        path.chmod(0o600)
+        marker.write_text(build_id + '\n')
+        return directory / 'Discord'
+
+
+if __name__ == '__main__':
+    config = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config')))
+    host = Path('/opt/discord') if os.path.ismount('/opt/discord') else Path('/usr/share/discord')
+    executable = seed(config / 'discord', Path('/usr/share/quantix-os/discord-installer.db'),
+                      host, Path('/usr/share/quantix-os/discord-build-id').read_text().strip())
+    if executable:
+        print(executable)

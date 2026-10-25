@@ -20,6 +20,9 @@ is_overlay_mounted() {
 # Try to launch from overlay if everything is in place
 try_overlay() {
   if is_overlay_mounted && [ -x "$OVERLAY_BIN" ]; then
+    local prepared
+    prepared="$(/usr/libexec/quantix-discord-seed)"
+    if [[ -n "$prepared" ]]; then exec "$prepared" "$@"; fi
     exec "$OVERLAY_BIN" "$@"
   fi
 }
@@ -44,6 +47,8 @@ fi
 # 3. Fallback to stock Discord if overlay is dead
 ###################################################
 if [ -x "$STOCK_BIN" ]; then
+  PREPARED="$(/usr/libexec/quantix-discord-seed)"
+  if [[ -n "$PREPARED" ]]; then exec "$PREPARED" "$@"; fi
   exec "$STOCK_BIN" "$@"
 fi
 

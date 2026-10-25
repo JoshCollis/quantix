@@ -27,6 +27,11 @@ else
     fi
     "$elevate" systemctl start discord-overlay.service
     findmnt --mountpoint /opt/discord --types overlay --noheadings >/dev/null
+    prepared=$(/usr/libexec/quantix-discord-seed)
+    if [ -n "$prepared" ] && [ "$(readlink -f "$(dirname "$prepared")/resources")" != "$(readlink -f /opt/discord/resources)" ]; then
+        target=$(dirname "$prepared")
+        elevate=
+    fi
 fi
 
 workdir=$(mktemp -d)

@@ -24,6 +24,17 @@ test -f "$client/resources/app.asar"
 install -d /usr/share/discord /usr/share/quantix-os
 cp -a "$client/." /usr/share/discord/
 chmod 4755 /usr/share/discord/chrome-sandbox
+if [[ -f "$workdir/client/installer.db" ]]; then
+  install -Dm0644 "$workdir/client/installer.db" /usr/share/quantix-os/discord-installer.db
+  # Never distribute one installation/telemetry identity to every user.
+  python3 - <<'PY'
+import sqlite3
+with sqlite3.connect('/usr/share/quantix-os/discord-installer.db') as database:
+    database.execute("DELETE FROM key_values WHERE key = 'install_id'")
+    database.commit()
+    database.execute('VACUUM')
+PY
+fi
 # The launcher can stay unchanged while the host updates. Identify the host.
 (cd "$client" && sha256sum Discord resources/app.asar) | sha256sum | cut -d' ' -f1 \
   > /usr/share/quantix-os/discord-build-id

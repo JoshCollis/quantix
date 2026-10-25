@@ -41,7 +41,9 @@ Brave is installed from its official stable RPM repository and becomes the defau
 
 ### Discord and Vencord
 
-Every build downloads Discord's current official stable Linux release. Discord runs through a writable overlay at `/opt/discord`. The patch layer survives reboots and OS updates that include the identical Discord build. When the bundled Discord build changes, the old patch layer is discarded before mounting the new one; your user settings are not removed.
+Every build downloads Discord's current official stable Linux release, including its native modules and updater metadata. The launcher registers that bundled host with the native updater without replacing your settings or newer personal installs. Each user gets their own installer identity. Discord runs through a writable overlay at `/opt/discord`. The patch layer survives reboots and OS updates that include the identical Discord build. When the bundled Discord build changes, the old patch layer is discarded before mounting the new one; your user settings are not removed.
+
+The current upstream updater requires a real executable inside a per-user `app-VERSION` directory. The helper copies only that executable once per bundled version, linking resources and bundled modules to the overlay rather than duplicating the entire installation. Native module updates remain user-writable. Only Quantix-managed host directories are discarded when the bundled host changes; actual self-updated installations are left to Discord's own updater.
 
 Discord's newer Linux updater can also install a newer host under your own Discord configuration directory between OS builds. The launcher prefers that host when it is at least as new as the bundled one. Close Discord, then run `vencord-patcher` as your normal user: it patches exactly the host the launcher uses (the system overlay or your writable self-updated host), never immutable `/usr`. Vencord may need reapplying after a Discord update. If the overlay fails, the launcher falls back to unpatched Discord.
 
