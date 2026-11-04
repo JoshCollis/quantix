@@ -1,5 +1,8 @@
+import configparser
+import hashlib
 import json
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -34,15 +37,89 @@ class BuildTests(unittest.TestCase):
             names.append(name)
         self.assertEqual(cleanup['strategy']['matrix']['package'], names)
 
-    def test_shared_boot_configuration_keeps_host_graphics(self):
+    def test_inherited_terra_repositories_are_not_added_again(self):
+        # Bazzite 45.20261104 installs terra-release{,-extras,-mesa} in
+        # the common build path, including NVIDIA Open. Model DNF5's repo-ID
+        # collision rather than relying only on the local repo filenames.
+        inherited = {'terra', 'terra-source', 'terra-mesa', 'terra-mesa-source',
+                     'terra-extras', 'terra-extras-source'}
+        for variant in ['recipe.yml', 'recipe-nvidia-open.yml']:
+            with self.subTest(variant=variant):
+                recipe = load_yaml(f'recipes/{variant}')
+                modules = load_yaml('recipes/' + recipe['modules'][0]['from-file'])['modules']
+                for module in modules:
+                    for repo in module.get('repos', {}).get('files', []):
+                        if '://' not in repo:
+                            config = configparser.ConfigParser(interpolation=None)
+                            self.assertTrue(config.read(ROOT / 'files/dnf' / repo))
+                            self.assertFalse(inherited.intersection(config.sections()),
+                                             f'Duplicate upstream repo IDs in {repo}')
+                        self.assertNotIn('terra', repo.lower(), 'Use Bazzite-owned Terra repositories')
+        for path in (ROOT / 'files').rglob('*.repo'):
+            config = configparser.ConfigParser(interpolation=None)
+            config.read(path)
+            self.assertFalse(inherited.intersection(config.sections()), str(path))
+
+    def test_no_custom_passthrough_or_kernel_tuning(self):
         modules = load_yaml('recipes/common.yml')['modules']
-        self.assertEqual([module['type'] for module in modules[-2:]], ['initramfs', 'signing'])
-        kargs = next(module['kargs'] for module in modules if module.get('type') == 'kargs')
-        self.assertFalse(any(arg == 'nomodeset' or arg.startswith('vfio-pci.ids=') for arg in kargs))
-        self.assertFalse(any('blacklist' in arg for arg in kargs))
-        dracut = (ROOT / 'files/system/etc/dracut.conf.d/vfio.conf').read_text()
-        self.assertIn('add_drivers+=', dracut)
-        self.assertNotIn('omit_drivers', dracut)
+        self.assertFalse({'kargs', 'initramfs', 'akmods'}.intersection(
+            module.get('type') for module in modules))
+        self.assertFalse((ROOT / 'files/system/etc/dracut.conf.d/vfio.conf').exists())
+        forbidden = re.compile(
+            r'vfio|iommu|pci[-_]stub|pcie_acs_override|hugepages|'
+            r'kvm\.(?:ignore_msrs|report_ignored_msrs)|preempt=|gpu_sched\.|'
+            r'(?:rd\.)?driver\.blacklist|modprobe\.blacklist|nomodeset|'
+            r'blacklist\s+(?:amdgpu|radeon|nouveau|nvidia|i915)|'
+            r'(?:driver_override|new_id|/drivers/[^\s]+/bind)|'
+            r'mokutil\s+--disable-validation', re.IGNORECASE)
+        for directory in ['files', 'modules', 'recipes']:
+            for path in (ROOT / directory).rglob('*'):
+                if not path.is_file():
+                    continue
+                with self.subTest(path=str(path.relative_to(ROOT))):
+                    self.assertNotRegex(str(path.relative_to(ROOT)),
+                                        r'dracut\.conf\.d|modprobe\.d|kargs\.d|\.patch$')
+                    try:
+                        text = path.read_text()
+                    except UnicodeDecodeError:
+                        continue
+                    self.assertNotRegex(text, forbidden)
+        # These are application COPRs, not replacement kernels or akmods.
+        dnf = next(module for module in modules if module.get('type') == 'dnf')
+        self.assertEqual(dnf['repos']['copr'], ['lizardbyte/stable', 'codifryed/CoolerControl'])
+        self.assertFalse(any(package.startswith(('kernel', 'akmod', 'kmod'))
+                             for package in dnf['install']['packages']))
+
+    def test_standard_virtualization_is_preserved(self):
+        modules = load_yaml('recipes/common.yml')['modules']
+        packages = next(module['install']['packages'] for module in modules if module.get('type') == 'dnf')
+        for package in ['virt-manager', 'virt-viewer', 'libvirt', 'qemu',
+                        'qemu-char-spice', 'qemu-device-display-virtio-gpu',
+                        'qemu-device-display-virtio-vga', 'qemu-device-usb-redirect',
+                        'qemu-img', 'qemu-system-x86-core', 'qemu-user-binfmt', 'qemu-user-static']:
+            self.assertIn(package, packages)
+        services = next(module['system']['enabled'] for module in modules if module.get('type') == 'systemd')
+        self.assertIn('libvirtd', services)
+        self.assertIn('swtpm-workaround', services)
+        for path in ['usr/lib/systemd/system/swtpm-workaround.service',
+                     'usr/lib/tmpfiles.d/swtpm-workaround.conf']:
+            self.assertTrue((ROOT / 'files/system' / path).is_file())
+
+    def test_signing_is_preserved(self):
+        modules = load_yaml('recipes/common.yml')['modules']
+        self.assertEqual(modules[-1], {'type': 'signing'})
+        self.assertEqual(hashlib.sha256((ROOT / 'cosign.pub').read_bytes()).hexdigest(),
+                         '640eb628a4a7518c423428b67addfee31e5555a50798e360abb3473d59cb58c6')
+        build = load_yaml('.github/workflows/build.yml')['jobs']['build']
+        action = next(step for step in build['steps'] if step['name'] == 'Build Custom Image')
+        self.assertEqual(action['with']['cosign_private_key'], '${{ secrets.SIGNING_SECRET }}')
+        self.assertEqual(action['with']['registry_token'], '${{ github.token }}')
+        self.assertEqual(build['permissions']['id-token'], 'write')
+
+    def test_cpe_matches_verified_fedora_base(self):
+        modules = load_yaml('recipes/common.yml')['modules']
+        metadata = next(module['properties'] for module in modules if module.get('type') == 'os-release')
+        self.assertEqual(metadata['CPE_NAME'], 'cpe:/o:joshcollis:quantix:45')
 
     def test_file_overrides_win_over_upstream_theme(self):
         modules = load_yaml('recipes/common.yml')['modules']

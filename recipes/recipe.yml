@@ -1,5 +1,5 @@
 name: quantix
-description: My personal distro based on Bazzite with some nice-to-haves for developers from Aurora DX and setup for VFIO by default. Also includes some nice Dracula theming for a pleasant dark colour scheme.
+description: My personal distro based on Bazzite with some nice-to-haves for developers from Aurora DX and standard virtualization tools. Also includes some nice Dracula theming for a pleasant dark colour scheme.
 
 base-image: ghcr.io/ublue-os/bazzite
 image-version: stable

@@ -1,5 +1,5 @@
 name: quantix-nvidia-open
-description: Quantix with NVIDIA Open drivers, based on Bazzite NVIDIA Open, with developer tools, VFIO setup, and Dracula theming.
+description: Quantix with NVIDIA Open drivers, based on Bazzite NVIDIA Open, with developer tools, standard virtualization tools, and Dracula theming.
 
 base-image: ghcr.io/ublue-os/bazzite-nvidia-open
 image-version: stable
