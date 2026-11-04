@@ -152,6 +152,21 @@ class BuildTests(unittest.TestCase):
                 self.assertEqual(metadata['image-ref'], f'ostree-image-signed:docker://ghcr.io/joshcollis/{name or "quantix"}')
                 self.assertEqual(splash.read_text(), 'quantix_logo.svgz')
 
+    def test_nvidia_chunked_composition_skips_previous_baseline(self):
+        steps = load_yaml('.github/workflows/build.yml')['jobs']['build']['steps']
+        action = next(step for step in steps if step['name'] == 'Build Custom Image')
+        self.assertEqual(action['uses'], 'blue-build/github-action@v1.13')
+        build = action['with']
+        # v0.9.40's build_chunked_oci skips the previous-image pull when
+        # clear_plan is true. Keep baseline reuse for the standard variant.
+        self.assertEqual(build.get('rechunk_clear_plan'),
+                         "${{ matrix.recipe == 'recipe-nvidia-open.yml' }}")
+        self.assertTrue(build['build_chunked_oci'])
+        self.assertFalse(build['rechunk'])
+        self.assertFalse(build['use_cache'])
+        self.assertTrue(build['maximize_build_space'])
+        self.assertEqual(build['build_opts'], '--build-driver podman --run-driver podman')
+
     def test_buildkit_pull_retries(self):
         steps = load_yaml('.github/workflows/build.yml')['jobs']['build']['steps']
         cleanup = next(step for step in steps if step['name'] == 'Free space for chunk composition')

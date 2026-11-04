@@ -60,6 +60,9 @@ jobs:
           rechunk: false
           # Validated with signed sequential upgrades and a fresh install on Gill.
           build_chunked_oci: true
+          # Avoid retaining the previous NVIDIA image during composition.
+          # A fresh chunk plan trades cross-build reuse for lower peak disk use.
+          rechunk_clear_plan: ${{ matrix.recipe == 'recipe-nvidia-open.yml' }}
           build_opts: --build-driver podman --run-driver podman
           # Discord and the package repositories must be resolved on every build.
           use_cache: false
