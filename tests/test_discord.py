@@ -1,14 +1,150 @@
 import os
+import hashlib
 import json
 from pathlib import Path
 import runpy
+import shutil
 import sqlite3
 import subprocess
+import tarfile
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 seed = runpy.run_path(str(ROOT / 'files/system/usr/libexec/quantix-discord-seed'))['seed']
+
+
+class DiscordInstallTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.host = self.root / 'host'
+        for name, content in {
+            'Discord': '#!/bin/sh\nexit 99\n',  # Installing must never launch the GUI.
+            'chrome-sandbox': 'sandbox',
+            'resources/build_info.json': '{"version":"1.0.170"}',
+            'resources/app.asar': 'complete host resources',
+            'modules/discord_desktop_core-1/index.js': 'bundled native modules',
+        }.items():
+            path = self.host / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+        (self.host / 'Discord').chmod(0o755)
+        self.metadata = self.root / 'installer.db'
+        with sqlite3.connect(self.metadata) as database:
+            database.execute('CREATE TABLE key_values (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+            database.executemany('INSERT INTO key_values VALUES (?, ?)', [
+                ('install_id', 'private-build-identity'), ('host/fixture', 'bundled host metadata'),
+            ])
+        self.bin = self.root / 'bin'
+        self.bin.mkdir()
+        curl = self.bin / 'curl'
+        curl.write_text('''#!/bin/bash
+set -euo pipefail
+if (( DOWNLOAD_STATUS != 0 )); then exit "$DOWNLOAD_STATUS"; fi
+while [[ "$1" != --output ]]; do shift; done
+cp "$ARCHIVE" "$2"
+''')
+        curl.chmod(0o755)
+        self.usr = self.root / 'usr'
+        (self.usr / 'bin').mkdir(parents=True)
+        (self.usr / 'bin/discord').symlink_to('old-rpm-wrapper')
+
+    def install(self, launcher=True, **environment):
+        distribution = self.root / 'distribution/Discord'
+        if launcher:
+            distribution.mkdir(parents=True)
+        else:
+            shutil.copytree(self.host, distribution)
+        (distribution / 'discord.png').write_text('official icon')
+        bootstrap = distribution / 'updater_bootstrap'
+        # Model the current official --help contract, not an invented CLI option.
+        bootstrap.write_text('''#!/usr/bin/python3
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+if sys.argv[1] != '--no-gui':
+    print(f"error: Found argument '{sys.argv[1]}' which wasn't expected, or isn't valid in this context", file=sys.stderr)
+    sys.exit(1)
+assert sys.argv[3:] == ['stable', 'https://updates.discord.com/']
+root = Path(sys.argv[2])
+assert os.environ['HOME'] == str(root.parent / 'home')
+assert os.environ['XDG_CONFIG_HOME'] == str(root.parent / 'home/.config')
+Path(os.environ['BOOTSTRAP_CALL']).write_text(json.dumps(sys.argv[1:]))
+if int(os.environ['BOOTSTRAP_STATUS']):
+    sys.exit(int(os.environ['BOOTSTRAP_STATUS']))
+shutil.copytree(os.environ['HOST'], root / 'app-1.0.170')
+shutil.copyfile(os.environ['METADATA'], root / 'installer.db')
+print('app-1.0.170')
+''')
+        bootstrap.chmod(0o755)
+        archive = self.root / 'discord.tar.gz'
+        with tarfile.open(archive, 'w:gz') as tar:
+            tar.add(distribution, arcname='Discord')
+        original = (ROOT / 'files/scripts/install-discord.sh').read_text()
+        # Only redirect installation destinations; all actual file/SQLite/hash operations run.
+        script = original.replace('/usr/share/', str(self.usr / 'share') + '/').replace(
+            '/usr/bin/discord', str(self.usr / 'bin/discord'))
+        env = dict(os.environ, PATH=f'{self.bin}:' + os.environ['PATH'],
+                   HOME=str(self.root / 'unused-home'), XDG_CONFIG_HOME=str(self.root / 'unused-config'),
+                   HOST=str(self.host), METADATA=str(self.metadata), ARCHIVE=str(archive),
+                   BOOTSTRAP_CALL=str(self.root / 'bootstrap-call'), BOOTSTRAP_STATUS='0', DOWNLOAD_STATUS='0')
+        env.update(environment)
+        return subprocess.run(['bash', '-c', script], env=env, capture_output=True, text=True, timeout=10)
+
+    def assert_installed(self):
+        target = self.usr / 'share/discord'
+        for path in self.host.rglob('*'):
+            if path.is_file():
+                self.assertEqual((target / path.relative_to(self.host)).read_bytes(), path.read_bytes())
+        self.assertEqual((target / 'chrome-sandbox').stat().st_mode & 0o7777, 0o4755)
+        self.assertTrue(os.access(target / 'Discord', os.X_OK))
+        checksums = ''.join(hashlib.sha256((target / name).read_bytes()).hexdigest() + '  ' + name + '\n'
+                            for name in ['Discord', 'resources/app.asar'])
+        expected = hashlib.sha256(checksums.encode()).hexdigest() + '\n'
+        self.assertEqual((self.usr / 'share/quantix-os/discord-build-id').read_text(), expected)
+        self.assertEqual((self.usr / 'share/pixmaps/discord.png').read_text(), 'official icon')
+        self.assertFalse((self.usr / 'bin/discord').is_symlink())
+
+    def test_launcher_bootstrap_resolves_complete_host_headlessly(self):
+        result = self.install()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_installed()
+        arguments = json.loads((self.root / 'bootstrap-call').read_text())
+        self.assertEqual(arguments[0], '--no-gui')
+        self.assertFalse(Path(arguments[1]).parent.exists(), 'Temporary build profile must be cleaned up')
+        installed = self.usr / 'share/quantix-os/discord-installer.db'
+        with sqlite3.connect(installed) as database:
+            self.assertEqual(database.execute('SELECT * FROM key_values').fetchall(),
+                             [('host/fixture', 'bundled host metadata')])
+        self.assertNotIn(b'private-build-identity', installed.read_bytes())
+
+    def test_legacy_complete_tarball_skips_bootstrap(self):
+        result = self.install(launcher=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_installed()
+        self.assertFalse((self.root / 'bootstrap-call').exists())
+        self.assertFalse((self.usr / 'share/quantix-os/discord-installer.db').exists())
+
+    def test_download_error_fails_installation(self):
+        result = self.install(DOWNLOAD_STATUS='22')
+        self.assertEqual(result.returncode, 22, result.stderr)
+        self.assertFalse((self.usr / 'share/discord').exists())
+
+    def test_bootstrap_error_fails_installation(self):
+        result = self.install(BOOTSTRAP_STATUS='23')
+        self.assertEqual(result.returncode, 23, result.stderr)
+        self.assertFalse((self.usr / 'share/discord').exists())
+
+    def test_incomplete_resolved_host_fails_installation(self):
+        (self.host / 'resources/app.asar').unlink()
+        result = self.install()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue((self.root / 'bootstrap-call').exists())
+        self.assertFalse((self.usr / 'share/discord').exists())
 
 
 class DiscordTests(unittest.TestCase):

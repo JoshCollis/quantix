@@ -14,7 +14,7 @@ if [[ -x "$client/updater_bootstrap" && ! -x "$client/Discord" ]]; then
   # host at build time, without running Discord or using a real user's profile.
   install -d "$workdir/client" "$workdir/home"
   app_dir="$(HOME="$workdir/home" XDG_CONFIG_HOME="$workdir/home/.config" \
-    timeout 600 "$client/updater_bootstrap" --no-zenity "$workdir/client" \
+    timeout 600 "$client/updater_bootstrap" --no-gui "$workdir/client" \
     stable https://updates.discord.com/)"
   client="$workdir/client/$app_dir"
 fi
